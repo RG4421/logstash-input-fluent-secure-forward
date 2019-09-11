@@ -15,10 +15,11 @@ Follow instructions [here](https://www.elastic.co/guide/en/logstash/7.2/java-inp
 
 Every default input option (besides codec) is accepted.
 
-| Key  | Type  | Description | Default |
+| Key  | Type  | Description | Default | 
 | -----|-------|-------------|-------- |
 | host | String | Hostname to listen on | 0.0.0.0 |
 | port | String | Port to listen on | 24284 |
+| shared_key | String | A shared key that must match between fluentd outputs and this input. This property is required. |  |
 | self_hostname | String | Hostname of server, validated against client.  If using a load balancer, set this to the load balancer name. | auto generated |
 | ssl_version | String | SSL version to use | TLSv1.2 |
 | ssl_ciphers | String | Comma separated list of ciphers to enable |  |
