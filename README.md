@@ -12,9 +12,9 @@ This plugin is largely based on [tagomoris/fluent-plugin-secure-forward](https:/
 Follow instructions [here](https://www.elastic.co/guide/en/logstash/7.2/java-input-plugin.html).
 
 ## Installing
-An [offline plugin package](https://github.com/OneMainF/logstash-input-fluent-secure-forward/releases/download/1.0.0/logstash-offline-plugins-7.2.0.zip) is provide to avoid proxy errors when installing
+Download the latest gem from the release page and install
 ```bash
-bin/logstash-plugin install file:///tmp/logstash-offline-plugins-7.2.0.zip
+bin/logstash-plugin install --no-verify --local logstash-input-fluent_secure_forward-1.0.0.gem
 ```
 ## Configuration
 
