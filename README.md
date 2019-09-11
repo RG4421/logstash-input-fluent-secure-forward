@@ -9,7 +9,7 @@ Messages are expected to come in the form of a MessagePack.
 This plugin is largely based on [tagomoris/fluent-plugin-secure-forward](https://github.com/tagomoris/fluent-plugin-secure-forward)
 
 ## Building
-Follow instructions [here](https://www.elastic.co/guide/en/logstash/6.7/contributing-java-plugin.html).
+Follow instructions [here](https://www.elastic.co/guide/en/logstash/7.2/java-input-plugin.html).
 
 ## Configuration
 
