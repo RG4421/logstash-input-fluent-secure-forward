@@ -7,21 +7,20 @@ import org.apache.logging.log4j.Logger;
 import javax.net.ServerSocketFactory;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLServerSocket;
 import javax.net.ssl.TrustManagerFactory;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.net.InetAddress;
-import java.net.ServerSocket;
-import java.net.SocketException;
-import java.net.UnknownHostException;
+import java.net.*;
 import java.nio.file.Files;
-import java.security.*;
+import java.security.GeneralSecurityException;
+import java.security.KeyException;
+import java.security.KeyFactory;
+import java.security.KeyStore;
 import java.security.cert.Certificate;
-import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
-import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.util.*;
 import java.util.concurrent.CountDownLatch;
@@ -35,7 +34,7 @@ public class FluentSecureForward implements Input {
     static final PluginConfigSpec<String> HOST_CONFIG = PluginConfigSpec.stringSetting("host", "0.0.0.0");
     static final PluginConfigSpec<String> PORT_CONFIG = PluginConfigSpec.stringSetting("port", "24284");
     static final PluginConfigSpec<String> SSL_VERSION_CONFIG = PluginConfigSpec.stringSetting("ssl_version", "TLSv1.2");
-    static final PluginConfigSpec<String> SSL_CIPHERS_CONFIG = PluginConfigSpec.stringSetting("ssl_ciphers");
+    static final PluginConfigSpec<String> SSL_CIPHERS_CONFIG = PluginConfigSpec.stringSetting("ssl_ciphers", "");
     static final PluginConfigSpec<Boolean> SSL_ENABLE_CONFIG = PluginConfigSpec.booleanSetting("ssl_enable", true);
     static final PluginConfigSpec<String> SSL_CERT_CONFIG = PluginConfigSpec.requiredStringSetting("ssl_cert");
     static final PluginConfigSpec<String> SSL_KEY_CONFIG = PluginConfigSpec.requiredStringSetting("ssl_key");
@@ -50,7 +49,7 @@ public class FluentSecureForward implements Input {
     private final String host;
     private final Integer port;
     private final String sslVersion;
-    private final String sslCiphers;
+    private final String[] sslCiphers;
     private final String sslCert;
     private final String sslKey;
     private final boolean sslEnable;
@@ -84,14 +83,14 @@ public class FluentSecureForward implements Input {
             }
             logger.info("self_hostname set to {}", selfHostname);
         }
-        if(!config.contains(SHARED_KEY_CONFIG)){
+        if (!config.contains(SHARED_KEY_CONFIG)) {
             throw new IllegalStateException("A value must be specified for 'shared_key'");
         }
         sharedKeyBytes = config.get(SHARED_KEY_CONFIG).getBytes();
         selfHostnameBytes = selfHostname.getBytes();
         host = config.get(HOST_CONFIG);
         sslVersion = config.get(SSL_VERSION_CONFIG);
-        sslCiphers = config.get(SSL_CIPHERS_CONFIG);
+        sslCiphers = config.get(SSL_CIPHERS_CONFIG).split("  +");
         sslCert = config.get(SSL_CERT_CONFIG);
         sslKey = config.get(SSL_KEY_CONFIG);
         sslEnable = config.get(SSL_ENABLE_CONFIG);
@@ -133,7 +132,8 @@ public class FluentSecureForward implements Input {
 
     }
 
-    SSLContext getSSLContext() throws InvalidKeySpecException, UnrecoverableKeyException, NoSuchAlgorithmException, KeyStoreException, CertificateException, KeyException, IOException {
+
+    private ServerSocket getSSLServerSocket() throws GeneralSecurityException, IOException {
         SSLContext sslContext;
         char[] emptyPassword = "".toCharArray();
         KeyStore ks = KeyStore.getInstance(KeyStore.getDefaultType());
@@ -165,12 +165,29 @@ public class FluentSecureForward implements Input {
         kmf.init(ks, emptyPassword);
         tmf.init(ks);
         sslContext = SSLContext.getInstance(sslVersion);
-        if (sslCiphers != null && !sslCiphers.equals("")) {
-            sslContext.getDefaultSSLParameters().setCipherSuites(sslCiphers.split(","));
-        }
         sslContext.init(kmf.getKeyManagers(), tmf.getTrustManagers(), null);
-        return sslContext;
+        SSLServerSocket sslServerSocket = (SSLServerSocket) sslContext
+                .getServerSocketFactory()
+                .createServerSocket(port, 0, inetAddress);
+        if (!sslCiphers[0].equals("")) {
+            sslServerSocket.setEnabledCipherSuites(sslCiphers);
+        }
+        return sslServerSocket;
+    }
 
+    private ServerSocket getServerSocket() throws IOException {
+        return ServerSocketFactory.getDefault().createServerSocket(port, 0, inetAddress);
+    }
+
+    private void acceptNewConnection() throws IOException {
+        try {
+            Socket client = socket.accept();
+            new Thread(new FluentSession(this, client)).start();
+        } catch (SocketException e) {
+            if (!stopped) {
+                logger.error("Caught socket exception", e);
+            }
+        }
     }
 
     @Override
@@ -188,19 +205,13 @@ public class FluentSecureForward implements Input {
         try {
             logger.info("Starting {} input listener {}:{}", PLUGIN_NAME, host, port);
             if (sslEnable) {
-                socket = getSSLContext().getServerSocketFactory().createServerSocket(port, 0, inetAddress);
+                socket = getSSLServerSocket();
             } else {
-                socket = ServerSocketFactory.getDefault().createServerSocket(port, 0, inetAddress);
+                socket = getServerSocket();
             }
             logger.debug("{} {} started on {}:{}", PLUGIN_NAME, id, host, port);
             while (!stopped) {
-                try {
-                    new Thread(new FluentSession(this, socket.accept())).start();
-                }catch(SocketException e){
-                    if(!stopped){
-                        logger.error("Caught socket exception",e);
-                    }
-                }
+                acceptNewConnection();
             }
         } catch (Exception e) {
             logger.error("Could not start server ", e);
@@ -220,7 +231,7 @@ public class FluentSecureForward implements Input {
                 //no-op
             }
         }
-        logger.info("{} {} stopped",PLUGIN_NAME,this.id);
+        logger.info("{} {} stopped", PLUGIN_NAME, this.id);
     }
 
     @Override

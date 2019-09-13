@@ -27,7 +27,7 @@ Every default input option (besides codec) is accepted.
 | shared_key | String | A shared key that must match between fluentd outputs and this input. This property is required. |  |
 | self_hostname | String | Hostname of server, validated against client.  If using a load balancer, set this to the load balancer name. | auto generated |
 | ssl_version | String | SSL version to use | TLSv1.2 |
-| ssl_ciphers | String | Comma separated list of ciphers to enable |  |
+| ssl_ciphers | String | Space delimited list of ciphers to enable |  |
 | ssl_enable | Boolean | Whether to bind as an SSL socket or not | true |
 | ssl_cert | String | SSL certificate to use.  Required if ssl_enable |  |
 | ssl_key | String | SSL private key.  Required if ssl_enable |  |
