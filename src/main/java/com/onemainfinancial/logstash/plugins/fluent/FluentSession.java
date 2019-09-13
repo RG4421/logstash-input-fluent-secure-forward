@@ -10,6 +10,7 @@ import org.msgpack.type.Value;
 import org.msgpack.type.ValueType;
 import org.msgpack.unpacker.BufferUnpacker;
 
+import javax.net.ssl.SSLHandshakeException;
 import javax.net.ssl.SSLSocket;
 import java.io.EOFException;
 import java.io.IOException;
@@ -23,6 +24,7 @@ import java.util.Map;
 import static com.onemainfinancial.logstash.plugins.fluent.Utils.*;
 
 public class FluentSession implements Runnable {
+    private static final String REMOVE_HOST_CLOSED_MESSAGE = "Remote host closed connection during handshake";
     private static final Logger logger = LogManager.getLogger(FluentSession.class);
     private byte[] sharedKeyNonce = generateSalt();
     private byte[] authKeySalt = generateSalt();
@@ -154,7 +156,13 @@ public class FluentSession implements Runnable {
             sendHello();
             readFromSession();
         } catch (EOFException e) {
-            logger.info("Socket {} closed", session.getRemoteSocketAddress());
+            logger.debug("Socket {} closed", session.getRemoteSocketAddress());
+        } catch (SSLHandshakeException e){
+            if(e.getMessage().equalsIgnoreCase(REMOVE_HOST_CLOSED_MESSAGE)){
+                logger.trace("Suppressed exception from socket",e);
+            }else{
+                logger.error("Caught SSLHandshakeException from socket " + session.getRemoteSocketAddress(), e);
+            }
         } catch (IOException e) {
             logger.error("Caught exception from socket " + session.getRemoteSocketAddress(), e);
         }

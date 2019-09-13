@@ -35,10 +35,13 @@ class Utils {
 
     static String asString(Value value) {
         char[] chars = value.toString().toCharArray();
-        StringBuilder b = new StringBuilder();
-        boolean escaped = false;
         int l = chars.length;
+        if(l == 0){
+            return "";
+        }
+        StringBuilder b = new StringBuilder();
         int s = 0;
+        boolean escaped = false;
         if (chars[0] == '"') {
             s = 1;
             l = l - 1;
